@@ -1,26 +1,11 @@
 # -*- coding: utf-8 -*-
-##############################################################################
-#
-#    OpenERP, Open Source Management Solution
-#    This module copyright (C) 2011-2013 Therp BV (<http://therp.nl>)
-#
-#    This program is free software: you can redistribute it and/or modify
-#    it under the terms of the GNU Affero General Public License as
-#    published by the Free Software Foundation, either version 3 of the
-#    License, or (at your option) any later version.
-#
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU Affero General Public License for more details.
-#
-#    You should have received a copy of the GNU Affero General Public License
-#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-##############################################################################
+# Copyright 2011-2020 Therp BV <https://therp.nl>.
+# Copyright 2016-2020 Tecnativa - Pedro M. Baeza.
+# License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
 import sys
 import os
+import functools
 import inspect
 import uuid
 import logging as _logging_module
@@ -1704,7 +1689,6 @@ def logging(args_details=False, step=False):
         def wrapped_function(*args, **kwargs):
             to_log = True
             msg = "Executing method %s" % func.__name__
-
             # Count calls
             if step:
                 # Compute unique name
@@ -1719,18 +1703,17 @@ def logging(args_details=False, step=False):
                         msg += " ; Logging Step : %d" % step
                 else:
                     to_log = False
-
             # Log Args
             if args_details and to_log:
                 if args:
                     msg += " ; args : %s" % str(args)
                 if kwargs:
                     msg += " ; kwargs : %s" % str(kwargs)
-
             if to_log:
                 logger.info(msg)
-
             return func(*args, **kwargs)
+
+        functools.update_wrapper(wrapped_function, func)
         return wrapped_function
     return wrap
 
@@ -1778,29 +1761,35 @@ def migrate(no_version=False, use_env=None, uid=None, context=None):
                     # Python3: fetch pyfile from locals, not fp
                     filename = frame.locals.get(
                         'pyfile') or frame.locals['fp'].name
-                except Exception as e:
+                except Exception as exc:
                     logger.error(
                         "'migrate' decorator: failed to inspect "
-                        "the frame above: %s" % e)
-                    pass
+                        "the frame above: %s",
+                        exc
+                    )
                 if not version and not no_version:
                     return
                 logger.info(
-                    "%s: %s-migration script called with version %s" %
-                    (module, stage, version))
+                    "%s: %s-migration script called with version %s",
+                    module,
+                    stage,
+                    version
+                )
                 try:
                     # The actual function is called here
                     func(
                         api.Environment(
                             cr, uid or SUPERUSER_ID, context or {})
                         if use_env2 else cr, version)
-                except Exception as e:
-                    message = repr(e) if sys.version_info[0] == 2 else str(e)
+                except Exception as exc:
+                    error_message = repr(exc) if sys.version_info[0] == 2 else str(exc)
                     logger.error(
                         "%s: error in migration script %s: %s",
-                        module, filename, message)
-                    logger.exception(e)
+                        module, filename, error_message)
+                    logger.exception(exc)
                     raise
+
+        functools.update_wrapper(wrapped_function, func)
         return wrapped_function
     return wrap
 
